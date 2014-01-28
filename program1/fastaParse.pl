@@ -20,11 +20,11 @@ use strict;
 
 #++++++++++++++++++++++ set pattern here ++++++++++++++++++++++++++++
 #
-my $pattern = "(AT*).*(TAG|ATG)";
+#my $pattern = "(AT*).*(TAG|ATG)";
 
 print "Enter a pattern> \n";
 
-$pattern = <STDIN>;
+my $pattern = <STDIN>;
 chomp( $pattern );
 
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -70,7 +70,8 @@ while ( $header ) {
 
    #print "Sequence: $seqId has a length of $basesCount\n";
    
-   my $patternCount = $seq =~ tr/$pattern/$pattern/;
+   my @patternMatches = $seq =~ m/$pattern/g;
+   my $patternCount = @patternMatches;
    
    print "Sequence: $seqId, Pattern: $pattern, Number of Matches: $patternCount\n";
    #--------------------------------------------------------
