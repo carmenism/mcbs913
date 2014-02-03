@@ -1,5 +1,7 @@
 #!/usr/bin/perl -w
 #
+# Translation from DNA to Amino Acid.
+#
 # Carmen St. Jean (crr8@unh.edu)
 # MCBS 913, Spring 2014
 # Program 2
