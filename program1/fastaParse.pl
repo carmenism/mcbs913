@@ -2,9 +2,13 @@
 #
 # fastaParse fastafile
 #
-#    
-#   rdb
-#   01/28/10
+# Carmen St. Jean (crr8@unh.edu)
+# MCBS 913, Spring 2014
+# Program 1
+#
+# Based on sample code by RDB  
+#
+# February 2, 2014
 #
 my $usageMsg = q(   Usage: fastaparse fastafile
 
@@ -20,9 +24,8 @@ use strict;
 
 #++++++++++++++++++++++ set pattern here ++++++++++++++++++++++++++++
 #
-#my $pattern = "(AT*).*(TAG|ATG)";
 
-print "Enter a pattern> \n";
+print "Enter a pattern> ";
 
 my $pattern = <STDIN>;
 chomp( $pattern );
@@ -67,8 +70,6 @@ while ( $header ) {
    #   don't include the '>'; subtract 1 from position of space since
    #   the index includes the '>', but the substring doesn't
    my $seqId = substr( $header, 1, index( $header, " " ) - 1 );
-
-   #print "Sequence: $seqId has a length of $basesCount\n";
    
    my @patternMatches = $seq =~ m/$pattern/g;
    my $patternCount = @patternMatches;
