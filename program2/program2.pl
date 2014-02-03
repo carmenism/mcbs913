@@ -13,72 +13,96 @@ use strict;
 package main;
 
 my $aminoStop = "*";
+my $nucleoUnknown = "N";
 
 my %aminoAcids = (
     'UCA' => 'S', # Serine
     'UCC' => 'S', # Serine
     'UCG' => 'S', # Serine
     'UCU' => 'S', # Serine
+    'UCN' => 'S', # Serine
+    
     'UUC' => 'F', # Phenylalanine
     'UUU' => 'F', # Phenylalanine
     'UUA' => 'L', # Leucine
     'UUG' => 'L', # Leucine
+    
     'UAC' => 'Y', # Tyrosine
     'UAU' => 'Y', # Tyrosine
     'UAA' => $aminoStop, # Stop
     'UAG' => $aminoStop, # Stop
+    
     'UGC' => 'C', # Cysteine
     'UGU' => 'C', # Cysteine
     'UGA' => $aminoStop, # Stop
     'UGG' => 'W', # Tryptophan
+    
     'CUA' => 'L', # Leucine
     'CUC' => 'L', # Leucine
     'CUG' => 'L', # Leucine
     'CUU' => 'L', # Leucine
-    'CCA' => 'P', # Proline
+    'CUN' => 'L', # Leucine
+    
     'CAU' => 'H', # Histidine
     'CAA' => 'Q', # Glutamine
     'CAG' => 'Q', # Glutamine
+    'CAC' => 'H', # Histidine
+    
     'CGA' => 'R', # Arginine
     'CGC' => 'R', # Arginine
     'CGG' => 'R', # Arginine
     'CGU' => 'R', # Arginine
+    'CGN' => 'R', # Arginine
+    
     'AUA' => 'I', # Isoleucine
     'AUC' => 'I', # Isoleucine
     'AUU' => 'I', # Isoleucine
     'AUG' => 'M', # Methionine
+    
     'ACA' => 'T', # Threonine
     'ACC' => 'T', # Threonine
     'ACG' => 'T', # Threonine
     'ACU' => 'T', # Threonine
+    'ACN' => 'T', # Threonine
+    
     'AAC' => 'N', # Asparagine
     'AAU' => 'N', # Asparagine
     'AAA' => 'K', # Lysine
     'AAG' => 'K', # Lysine
+    
     'AGC' => 'S', # Serine
     'AGU' => 'S', # Serine
     'AGA' => 'R', # Arginine
     'AGG' => 'R', # Arginine
+    
+    'CCA' => 'P', # Proline
     'CCC' => 'P', # Proline
     'CCG' => 'P', # Proline
-    'CCU' => 'P', # Proline
-    'CAC' => 'H', # Histidine
+    'CCU' => 'P', # Proline 
+    'CCN' => 'P', # Proline     
+    
     'GUA' => 'V', # Valine
     'GUC' => 'V', # Valine
     'GUG' => 'V', # Valine
     'GUU' => 'V', # Valine
+    'GUN' => 'V', # Valine
+    
     'GCA' => 'A', # Alanine
     'GCC' => 'A', # Alanine
     'GCG' => 'A', # Alanine
     'GCU' => 'A', # Alanine
+    'GCN' => 'A', # Alanine
+    
     'GAC' => 'D', # Aspartic Acid
     'GAU' => 'D', # Aspartic Acid
     'GAA' => 'E', # Glutamic Acid
     'GAG' => 'E', # Glutamic Acid
+    
     'GGA' => 'G', # Glycine
     'GGC' => 'G', # Glycine
     'GGG' => 'G', # Glycine
-    'GGU' => 'G'  # Glycine
+    'GGU' => 'G', # Glycine
+    'GGN' => 'G'  # Glycine
 );
 
 my $usageMsg = q(   Usage: program2 fastafile
@@ -157,11 +181,17 @@ sub rnaToAminoAcids() {
         my $codon = substr($rna, $i, 3);
         my $aminoAcid = &codonToAminoAcid($codon);
         
-        $protein = $protein . $aminoAcid;
+        if ($aminoAcid) {
+            $protein = $protein . $aminoAcid;
+        } else {
+            print "\n***\n$codon\n***\n";
+        }
     }
     
     return $protein;
 }
+
+
 
 # Takes an RNA codon and returns an amino acid.
 sub codonToAminoAcid() {
