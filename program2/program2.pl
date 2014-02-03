@@ -182,9 +182,11 @@ sub rnaToAminoAcids() {
         my $aminoAcid = &codonToAminoAcid($codon);
         
         if ($aminoAcid) {
-            $protein = $protein . $aminoAcid;
+            $protein .= $aminoAcid;
         } else {
             print "\n***\n$codon\n***\n";
+            
+            #$protein .= "-";
         }
     }
     
