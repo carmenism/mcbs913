@@ -12,8 +12,6 @@
 use warnings;
 use strict;
 
-package main;
-
 my $aminoStop = "*";
 my $nucleoUnknown = "N";
 
@@ -22,7 +20,6 @@ my %aminoAcids = (
     'UCC' => 'S', # Serine
     'UCG' => 'S', # Serine
     'UCU' => 'S', # Serine
-    'UCN' => 'S', # Serine
     
     'UUC' => 'F', # Phenylalanine
     'UUU' => 'F', # Phenylalanine
@@ -43,7 +40,6 @@ my %aminoAcids = (
     'CUC' => 'L', # Leucine
     'CUG' => 'L', # Leucine
     'CUU' => 'L', # Leucine
-    'CUN' => 'L', # Leucine
     
     'CAU' => 'H', # Histidine
     'CAA' => 'Q', # Glutamine
@@ -54,7 +50,6 @@ my %aminoAcids = (
     'CGC' => 'R', # Arginine
     'CGG' => 'R', # Arginine
     'CGU' => 'R', # Arginine
-    'CGN' => 'R', # Arginine
     
     'AUA' => 'I', # Isoleucine
     'AUC' => 'I', # Isoleucine
@@ -65,7 +60,6 @@ my %aminoAcids = (
     'ACC' => 'T', # Threonine
     'ACG' => 'T', # Threonine
     'ACU' => 'T', # Threonine
-    'ACN' => 'T', # Threonine
     
     'AAC' => 'N', # Asparagine
     'AAU' => 'N', # Asparagine
@@ -80,20 +74,17 @@ my %aminoAcids = (
     'CCA' => 'P', # Proline
     'CCC' => 'P', # Proline
     'CCG' => 'P', # Proline
-    'CCU' => 'P', # Proline 
-    'CCN' => 'P', # Proline     
+    'CCU' => 'P', # Proline    
     
     'GUA' => 'V', # Valine
     'GUC' => 'V', # Valine
     'GUG' => 'V', # Valine
     'GUU' => 'V', # Valine
-    'GUN' => 'V', # Valine
     
     'GCA' => 'A', # Alanine
     'GCC' => 'A', # Alanine
     'GCG' => 'A', # Alanine
     'GCU' => 'A', # Alanine
-    'GCN' => 'A', # Alanine
     
     'GAC' => 'D', # Aspartic Acid
     'GAU' => 'D', # Aspartic Acid
@@ -103,8 +94,7 @@ my %aminoAcids = (
     'GGA' => 'G', # Glycine
     'GGC' => 'G', # Glycine
     'GGG' => 'G', # Glycine
-    'GGU' => 'G', # Glycine
-    'GGN' => 'G'  # Glycine
+    'GGU' => 'G'  # Glycine
 );
 
 my $usageMsg = q(   Usage: program2 fastafile
@@ -177,22 +167,20 @@ while ( $header ) {
 # Translates an RNA sequence to an amino acid sequence.
 sub rnaToAminoAcids() {
     my $rna = $_[0];
-    my $protein = "";
+    my $proteins = "";
     
     for (my $i = 0; ($i + 3) <= length($rna); $i += 3) {
         my $codon = substr($rna, $i, 3);
         my $aminoAcid = &codonToAminoAcid($codon);
         
         if ($aminoAcid) {
-            $protein .= $aminoAcid;
-        } else {
-            print "\n***\n$codon\n***\n";
-            
-            #$protein .= "-";
+            $proteins .= $aminoAcid;
+        } else {            
+            $proteins .= "-";
         }
     }
     
-    return $protein;
+    return $proteins;
 }
 
 
