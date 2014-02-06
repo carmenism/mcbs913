@@ -6,13 +6,15 @@
 # MCBS 913, Spring 2014
 # Program 2
 #
-# February 3, 2014
+# February 6, 2014
 #
 
 use warnings;
 use strict;
 
 my $aminoStop = "*";
+my $aminoUnknown = "_";
+
 my $nucleoUnknown = "N";
 
 my %aminoAcids = (
@@ -97,13 +99,13 @@ my %aminoAcids = (
     'GGU' => 'G'  # Glycine
 );
 
-my $usageMsg = q(   Usage: program2 fastafile
+my $usageMsg = q(   Usage: program2.pl fastafile
 
           Extract each sequence from a fastafile into a single string.
-          <do something to the sequence -- this one computes its length
-          and adds it after the sequence name on the header>
+          Transcribes the DNA to RNA, then translates RNA codons to
+          amino acids.
 
-          Output is the revised header and sequence data
+          Output is the revised header and protein sequences.
           Output sent to standard output. );
           
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -133,12 +135,6 @@ while ( $header ) {
       $inLine = <IN>;
    }
 
-   # -----------------------------------------------------
-   #   Replace the lines below with the sequence specific
-   #  processing you want to do.
-   #
-   my $basesCount = length( $seq );
-
    chomp( $header );  # remove line feed
    $header .= " ";    # make sure there is at least one space after seq id
    #
@@ -146,6 +142,7 @@ while ( $header ) {
    #   don't include the '>'; subtract 1 from position of space since
    #   the index includes the '>', but the substring doesn't
    my $seqId = substr( $header, 1, index( $header, " " ) - 1 );
+   
    my $rna = &dnaToRna($seq);
    my $aminoAcids = &rnaToAminoAcids($rna);
    
@@ -154,16 +151,6 @@ while ( $header ) {
    $header = $inLine;    # last line read is either next header or null
 }
 
-#my $dna = "ATCATCATCATCGGGTGA";
-#my $rna = &dnaToRna($dna);
-#my $rev = &reverseComplement($dna);
-#my $aa = &rnaToAminoAcids($rna);
-
-#print "rev: $rev\n";
-#print "rna: $rna\n";
-#print "dna: $dna\n";
-#print "aa: $aa\n";
-
 # Translates an RNA sequence to an amino acid sequence.
 sub rnaToAminoAcids() {
     my $rna = $_[0];
@@ -171,19 +158,22 @@ sub rnaToAminoAcids() {
     
     for (my $i = 0; ($i + 3) <= length($rna); $i += 3) {
         my $codon = substr($rna, $i, 3);
-        my $aminoAcid = &codonToAminoAcid($codon);
         
-        if ($aminoAcid) {
-            $proteins .= $aminoAcid;
-        } else {            
-            $proteins .= "-";
+        if ($codon =~ m/$nucleoUnknown/) {
+            $proteins .= $aminoUnknown;
+        } else {
+            my $aminoAcid = &codonToAminoAcid($codon);
+            
+            if ($aminoAcid) {
+                $proteins .= $aminoAcid;
+            } else {            
+                $proteins .= $aminoUnknown;
+            }
         }
     }
     
     return $proteins;
 }
-
-
 
 # Takes an RNA codon and returns an amino acid.
 sub codonToAminoAcid() {
