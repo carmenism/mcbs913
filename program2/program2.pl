@@ -13,7 +13,7 @@ use warnings;
 use strict;
 
 my $aminoStop = "_";
-my $aminoUnknown = "?";
+my $aminoUnknown = "*";
 
 my $nucleoUnknown = "N";
 
