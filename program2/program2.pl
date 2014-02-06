@@ -12,8 +12,8 @@
 use warnings;
 use strict;
 
-my $aminoStop = "*";
-my $aminoUnknown = "_";
+my $aminoStop = "_";
+my $aminoUnknown = "?";
 
 my $nucleoUnknown = "N";
 
