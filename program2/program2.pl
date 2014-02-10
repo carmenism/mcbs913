@@ -176,6 +176,18 @@ while ($header) {
         $longest = substr($revCompSeq, $starts[$longestIndex], $lengths[$longestIndex]);        
     }
     
+    &writeLongestProtein($longest, $seqId, $frames[$longestIndex]);
+    
+    #--------------------------------------------------------
+    $header = $inLine;    # last line read is either next header or null
+}
+
+# Writes the longest protein sequence to an output file.
+sub writeLongestProtein() {
+    my $longest = $_[0];
+    my $seqId = $_[1];
+    my $frame = $_[2];
+    
     my $longestRna = &dnaToRna($longest);
     my $longestProtein = &rnaToAminoAcids($longestRna);
     
@@ -183,12 +195,9 @@ while ($header) {
     my $OUTFILE;
     open $OUTFILE, "> $outFileName" or die "Error opening $outFileName: $!";
     
-    print{$OUTFILE} ">$seqId, longest protein, frame $frames[$longestIndex]\n";
+    print{$OUTFILE} ">$seqId, longest protein, frame $frame\n";
     print{$OUTFILE} "$longestProtein\n";
     close $OUTFILE;
-    
-    #--------------------------------------------------------
-    $header = $inLine;    # last line read is either next header or null
 }
 
 # Finds the longest protein in each open reading frame.
@@ -238,7 +247,6 @@ sub findLongestProteinSequence() {
     } else {    
         my $longestIndex = findLongestStringIndex(@proteinStrands);   
         my $longest = $proteinStrands[$longestIndex];
-        print "$longest\n\n";
         my $longestPosition = index($protein, $longest);
         
         $length = length($longest);            
