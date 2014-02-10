@@ -115,6 +115,10 @@ my $seqFile = $ARGV[ 0 ];
 
 open (IN, $seqFile) or die "Unable to open: " . $seqFile;
 
+my $outFileName = "out.fasta";
+my $OUTFILE;
+open $OUTFILE, "> $outFileName" or die "Error opening $outFileName: $!";
+
 # first line better be a sequence header
 my $header = <IN>;
 if ( substr( $header, 0, 1 ) ne '>' ) {
@@ -142,8 +146,6 @@ while ($header) {
     chomp( $header );  # remove line feed
     $header .= " ";    # make sure there is at least one space after seq id
     my $seqId = substr( $header, 1, index( $header, " " ) - 1 );
-   
-    #print "$header\n$aminoAcids\n\n";
     
     @frames = ();
     @lengths = ();
@@ -169,35 +171,38 @@ while ($header) {
     print "\n";
     
     my $longest;
+    my $frame = $frames[$longestIndex];
+    my $start = $starts[$longestIndex];
+    my $length = $lengths[$longestIndex];
     
     if ($longestIndex < 3) {
-        $longest = substr($seq, $starts[$longestIndex], $lengths[$longestIndex]);
+        $longest = substr($seq, $start, $length);
     } else {
-        $longest = substr($revCompSeq, $starts[$longestIndex], $lengths[$longestIndex]);        
+        $longest = substr($revCompSeq, $start, $length);        
     }
     
-    &writeLongestProtein($longest, $seqId, $frames[$longestIndex]);
+    &writeLongestProtein($longest, $seqId, $frame, $start, $length);
     
     #--------------------------------------------------------
     $header = $inLine;    # last line read is either next header or null
 }
+
+close $OUTFILE;
 
 # Writes the longest protein sequence to an output file.
 sub writeLongestProtein() {
     my $longest = $_[0];
     my $seqId = $_[1];
     my $frame = $_[2];
+    my $start = $_[3];
+    my $length = $_[4];
     
     my $longestRna = &dnaToRna($longest);
     my $longestProtein = &rnaToAminoAcids($longestRna);
     
-    my $outFileName = "$seqId-longest.out";
-    my $OUTFILE;
-    open $OUTFILE, "> $outFileName" or die "Error opening $outFileName: $!";
-    
-    print{$OUTFILE} ">$seqId, longest protein, frame $frame\n";
+    print{$OUTFILE} ">$seqId, longest protein from ";
+    print{$OUTFILE} "frame $frame, start: $start, length $length\n";
     print{$OUTFILE} "$longestProtein\n";
-    close $OUTFILE;
 }
 
 # Finds the longest protein in each open reading frame.
