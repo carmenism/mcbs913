@@ -113,42 +113,91 @@ my $usageMsg = q(   Usage: program2.pl fastafile
 
 my $seqFile = $ARGV[ 0 ];
 
-open ( IN, $seqFile )  or die "Unable to open: ".$seqFile ;
+open (IN, $seqFile) or die "Unable to open: " . $seqFile;
 
 # first line better be a sequence header
 my $header = <IN>;
 if ( substr( $header, 0, 1 ) ne '>' ) {
-   print "********* ERROR ********* Expecting header, got:\n $header";
-   print " is this a fasta file??? ";
-   &checkUsage();
-   exit;
+    print "********* ERROR ********* Expecting header, got:\n $header";
+    print " is this a fasta file??? ";
+    &checkUsage();
+    exit;
 }
 
-while ( $header ) {
-   my $seq = ""; 
-   my $inLine = <IN>;
+while ($header) {
+    my $seq = ""; 
+    my $inLine = <IN>;
 
-   # read in all input lines of bases
-   while ( $inLine && substr( $inLine, 0, 1 ) ne '>' ) {
-      chomp( $inLine );     # remove line feed
-      $seq = $seq . $inLine;
-      $inLine = <IN>;
-   }
+    # read in all input lines of bases
+    while ( $inLine && substr( $inLine, 0, 1 ) ne '>' ) {
+        chomp( $inLine );     # remove line feed
+        $seq = $seq . $inLine;
+        $inLine = <IN>;
+    }
 
-   chomp( $header );  # remove line feed
-   $header .= " ";    # make sure there is at least one space after seq id
-   #
-   # Extract the sequence id field: everything up to the first space.
-   #   don't include the '>'; subtract 1 from position of space since
-   #   the index includes the '>', but the substring doesn't
-   my $seqId = substr( $header, 1, index( $header, " " ) - 1 );
+    chomp( $header );  # remove line feed
+    $header .= " ";    # make sure there is at least one space after seq id
+    #
+    # Extract the sequence id field: everything up to the first space.
+    #   don't include the '>'; subtract 1 from position of space since
+    #   the index includes the '>', but the substring doesn't
+    my $seqId = substr( $header, 1, index( $header, " " ) - 1 );
    
-   my $rna = &dnaToRna($seq);
-   my $aminoAcids = &rnaToAminoAcids($rna);
+    #my $rna = &dnaToRna($seq);
+    #my $aminoAcids = &rnaToAminoAcids($rna);
    
-   print "$header\n$aminoAcids\n\n";
-   #--------------------------------------------------------
-   $header = $inLine;    # last line read is either next header or null
+    #print "$header\n$aminoAcids\n\n";
+    my $seqLength = length($seq);
+    
+    for (my $i = 0; $i < 3; $i++) {
+        my $orf = substr($seq, $i);#, $seqLength - $i);
+        my $rna = dnaToRna($seq);
+        my $protein = rnaToAminoAcids($rna);
+        my ($longestLength, $startPosition) = &findLongestProteinSequence($protein);
+        my $actualStartPosition = $startPosition + $i;
+    }
+   
+    #--------------------------------------------------------
+    $header = $inLine;    # last line read is either next header or null
+}
+
+# Find longest protein sequence between stop codons.
+sub findLongestProteinSequence() {
+    my $protein = $_[0];
+    my @proteinStrands = split($aminoStop, $protein);
+    
+    my $longestArrayIndex = findLongestStringIndex(@proteinStrands);
+    my $longest = $proteinStrands[$longestArrayIndex];
+    my $longestLength = length($longest);
+    
+    my $longestStrPosition = 0;
+    
+    for (my $i = 0; $i < $longestArrayIndex; $i++) {
+        $longestStrPosition += length($proteinStrands[$i]);
+    }
+    
+    if (substr($protein, 0, 1) eq $aminoStop) {
+        $longestStrPosition += 1;
+    }
+    
+    my $startPosition = 3 * $longestStrPosition;
+    
+    return ($longestLength, $startPosition);
+}
+
+# Finds the index of the longest string in an array of strings.
+sub findLongestStringIndex() {
+    my @list = @_;
+    my $longestIndex = -1;
+    my $listSize = @list;
+    
+    for (my $i = 0; $i < $listSize; $i++) {
+        if ($i == 0 or length($list[$i]) > length($list[$longestIndex])) {
+            $longestIndex = $i;
+        }
+    }
+    
+    return $longestIndex;
 }
 
 # Translates an RNA sequence to an amino acid sequence.
@@ -162,7 +211,7 @@ sub rnaToAminoAcids() {
         if ($codon =~ m/$nucleoUnknown/) {
             $proteins .= $aminoUnknown;
         } else {
-            my $aminoAcid = &codonToAminoAcid($codon);
+            my $aminoAcid = codonToAminoAcid($codon);
             
             if ($aminoAcid) {
                 $proteins .= $aminoAcid;
