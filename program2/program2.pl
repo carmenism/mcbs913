@@ -141,10 +141,6 @@ while ($header) {
 
     chomp( $header );  # remove line feed
     $header .= " ";    # make sure there is at least one space after seq id
-    #
-    # Extract the sequence id field: everything up to the first space.
-    #   don't include the '>'; subtract 1 from position of space since
-    #   the index includes the '>', but the substring doesn't
     my $seqId = substr( $header, 1, index( $header, " " ) - 1 );
    
     #print "$header\n$aminoAcids\n\n";
@@ -153,8 +149,10 @@ while ($header) {
     @lengths = ();
     @starts = ();
     
+    my $revCompSeq = &reverseComplement($seq);
+    
     &findLongestInFrames($seq, "");
-    &findLongestInFrames(&reverseComplement($seq), "r");
+    &findLongestInFrames($revCompSeq, "r");
     
     my $longestIndex = &findLargestNumberIndex(@lengths);
     
@@ -165,16 +163,35 @@ while ($header) {
             print "* "
         }
         
-        print "$frames[$i] $lengths[$i] $starts[$i]\n";
+        print "$frames[$i]\t$lengths[$i]\t$starts[$i]\n";
     }
     
     print "\n";
-   
+    
+    my $longest;
+    
+    if ($longestIndex < 3) {
+        $longest = substr($seq, $starts[$longestIndex], $lengths[$longestIndex]);
+    } else {
+        $longest = substr($revCompSeq, $starts[$longestIndex], $lengths[$longestIndex]);        
+    }
+    
+    my $longestRna = &dnaToRna($longest);
+    my $longestProtein = &rnaToAminoAcids($longestRna);
+    
+    my $outFileName = "$seqId-longest.out";
+    my $OUTFILE;
+    open $OUTFILE, "> $outFileName" or die "Error opening $outFileName: $!";
+    
+    print{$OUTFILE} ">$seqId, longest protein, frame $frames[$longestIndex]\n";
+    print{$OUTFILE} "$longestProtein\n";
+    close $OUTFILE;
+    
     #--------------------------------------------------------
     $header = $inLine;    # last line read is either next header or null
 }
 
-# 
+# Finds the longest protein in each open reading frame.
 sub findLongestInFrames() {
     my $dna = $_[0];
     my $prefix = $_[1];
@@ -183,11 +200,10 @@ sub findLongestInFrames() {
         my $rna = &dnaToRna(substr($dna, $i));
         my $protein = &rnaToAminoAcids($rna);
         my ($length, $start) = &findLongestProteinSequence($protein);
-        my $actualStart = $start + $i;
         
         push (@frames, "$prefix$i");
         push (@lengths, $length);
-        push (@starts, $actualStart);
+        push (@starts, ($start + $i));
     }
 }
 
@@ -222,6 +238,7 @@ sub findLongestProteinSequence() {
     } else {    
         my $longestIndex = findLongestStringIndex(@proteinStrands);   
         my $longest = $proteinStrands[$longestIndex];
+        print "$longest\n\n";
         my $longestPosition = index($protein, $longest);
         
         $length = length($longest);            
