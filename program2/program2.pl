@@ -115,7 +115,7 @@ my $seqFile = $ARGV[ 0 ];
 
 open (IN, $seqFile) or die "Unable to open: " . $seqFile;
 
-my $outFileName = "out.fasta";
+my $outFileName = "$seqFile.out";
 my $OUTFILE;
 open $OUTFILE, "> $outFileName" or die "Error opening $outFileName: $!";
 
