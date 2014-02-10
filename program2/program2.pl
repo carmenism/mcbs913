@@ -151,8 +151,8 @@ while ($header) {
     
     for (my $i = 0; $i < 3; $i++) {
         my $orf = substr($seq, $i);#, $seqLength - $i);
-        my $rna = dnaToRna($seq);
-        my $protein = rnaToAminoAcids($rna);
+        my $rna = &dnaToRna($seq);
+        my $protein = &rnaToAminoAcids($rna);
         my ($longestLength, $startPosition) = &findLongestProteinSequence($protein);
         my $actualStartPosition = $startPosition + $i;
     }
