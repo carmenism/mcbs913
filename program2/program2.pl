@@ -124,6 +124,10 @@ if ( substr( $header, 0, 1 ) ne '>' ) {
     exit;
 }
 
+my @frames = ();
+my @lengths = ();
+my @starts = ();
+
 while ($header) {
     my $seq = ""; 
     my $inLine = <IN>;
@@ -143,53 +147,95 @@ while ($header) {
     #   the index includes the '>', but the substring doesn't
     my $seqId = substr( $header, 1, index( $header, " " ) - 1 );
    
-    #my $rna = &dnaToRna($seq);
-    #my $aminoAcids = &rnaToAminoAcids($rna);
-   
     #print "$header\n$aminoAcids\n\n";
-    my $seqLength = length($seq);
     
-    for (my $i = 0; $i < 3; $i++) {
-        my $orf = substr($seq, $i);#, $seqLength - $i);
-        my $rna = &dnaToRna($seq);
-        my $protein = &rnaToAminoAcids($rna);
-        my ($longestLength, $startPosition) = &findLongestProteinSequence($protein);
-        my $actualStartPosition = $startPosition + $i;
+    @frames = ();
+    @lengths = ();
+    @starts = ();
+    
+    &findLongestInFrames($seq, "");
+    &findLongestInFrames(&reverseComplement($seq), "r");
+    
+    my $longestIndex = &findLargestNumberIndex(@lengths);
+    
+    print "$seqId\n";
+    
+    for (my $i = 0; $i < 6; $i++) {
+        if ($i == $longestIndex) {
+            print "* "
+        }
+        
+        print "$frames[$i] $lengths[$i] $starts[$i]\n";
     }
+    
+    print "\n";
    
     #--------------------------------------------------------
     $header = $inLine;    # last line read is either next header or null
 }
 
-# Find longest protein sequence between stop codons.
+# 
+sub findLongestInFrames() {
+    my $dna = $_[0];
+    my $prefix = $_[1];
+    
+    for (my $i = 0; $i < 3; $i++) {
+        my $rna = &dnaToRna(substr($dna, $i));
+        my $protein = &rnaToAminoAcids($rna);
+        my ($length, $start) = &findLongestProteinSequence($protein);
+        my $actualStart = $start + $i;
+        
+        push (@frames, "$prefix$i");
+        push (@lengths, $length);
+        push (@starts, $actualStart);
+    }
+}
+
+# Finds the index of largest number in an array of numbers.
+sub findLargestNumberIndex() {
+    my @list = @_;
+    my $largestIndex = -1;
+    my $listSize = @list;
+    
+    for (my $i = 0; $i < $listSize; $i++) {
+        if ($i == 0 or $list[$i] > $list[$largestIndex]) {
+            $largestIndex = $i;
+        }
+    }
+    
+    return $largestIndex;
+}
+
+# Finds the length and position of the longest protein sequence
+# between stop codons.
 sub findLongestProteinSequence() {
     my $protein = $_[0];
     my @proteinStrands = split($aminoStop, $protein);
+    my $numberStrands = @proteinStrands;
     
-    my $longestArrayIndex = findLongestStringIndex(@proteinStrands);
-    my $longest = $proteinStrands[$longestArrayIndex];
-    my $longestLength = length($longest);
+    my $start;
+    my $length;
     
-    my $longestStrPosition = 0;
-    
-    for (my $i = 0; $i < $longestArrayIndex; $i++) {
-        $longestStrPosition += length($proteinStrands[$i]);
+    if ($numberStrands == 1) {
+        $length = length($proteinStrands[0]);
+        $start = index($protein, $proteinStrands[0]);
+    } else {    
+        my $longestIndex = findLongestStringIndex(@proteinStrands);   
+        my $longest = $proteinStrands[$longestIndex];
+        my $longestPosition = index($protein, $longest);
+        
+        $length = length($longest);            
+        $start = $longestPosition;
     }
     
-    if (substr($protein, 0, 1) eq $aminoStop) {
-        $longestStrPosition += 1;
-    }
-    
-    my $startPosition = 3 * $longestStrPosition;
-    
-    return ($longestLength, $startPosition);
+    return (3 * $length, 3 * $start);
 }
 
 # Finds the index of the longest string in an array of strings.
 sub findLongestStringIndex() {
     my @list = @_;
     my $longestIndex = -1;
-    my $listSize = @list;
+    my $listSize = @list;    
     
     for (my $i = 0; $i < $listSize; $i++) {
         if ($i == 0 or length($list[$i]) > length($list[$longestIndex])) {
