@@ -76,8 +76,7 @@ for my $filename (@files) {
         $header = $inLine;
     }
     
-    my @allMatches = ();
-    my @allMatchIndices = ();
+    my %overlaps = ();
     
     for (my $i = 0; $i < scalar(@seqs); $i++) {
         # find the matches in the sequence
@@ -87,74 +86,42 @@ for my $filename (@files) {
         # find the indices of the matches in the sequence
         my $currentIndex = 0;
         for (my $j = 0; $j < scalar(@matches); $j++) {
-            my $index = index($seqs[$i], $matches[$j], $currentIndex);
-            print "$matches[$j] $index\n";
-            push (@matchIndices, $index);
-            $currentIndex = $index + length($matches[$j]);
-        }
-        
-        push (@allMatches, @matches);
-        push (@allMatchIndices, @matchIndices);
-    }
-    
-    my %overlaps = ();
-
-    # go through each collection of matches
-    for (my $i = 0; $i < scalar(@allMatches); $i++) {
-        my @matches = $allMatches[$i];
-        my @matchIndices = $allMatchIndices[$i];
-        
-        # go through each match in the collection
-        for (my $j = 0; $j < scalar(@matches); $j++) {
             my $match = $matches[$j];
-            my $matchIndex = $matchIndices[$j];
-            #print "$match $matchIndex\n";
+            my $start = index($seqs[$i], $match, $currentIndex);
+            my $end = $start + length($match);
             
-            # go through the other collections of matches
-            for (my $otherI = $i + 1; $otherI < scalar(@allMatches); $otherI++) {
-                my @otherMatches = $allMatches[$otherI];
-                my @otherIndices = $allMatchIndices[$otherI];
+            my $existingOverlapModified = 0;
+                        
+            for my $otherStart ( keys %overlaps ) {                            
+                (my $otherEnd, my $otherCount) = @{$overlaps{$otherStart}};
                 
-                # go through each match in the other collection
-                for (my $otherJ = 0; $otherJ < scalar(@otherMatches); $otherJ++) {
-                    my $otherMatch = $otherMatches[$otherJ];
-                    my $otherMatchIndex = $otherIndices[$otherJ];
-                    
-                    (my $start, my $end) = &getStringOverlap($match,
-                                                             $matchIndex,
-                                                             $otherMatch,
-                                                             $otherMatchIndex);
-                    
-                    if ($start != -1 and $end != -1) {
-                        my $removed = 0;
-                        
-                        while ( my ($otherStart, @other) = each(%overlaps) ) {
-                            my $otherEnd = $other[0];
-                            my $otherCount = $other[1];
-                            (my $newStart, my $newEnd) = &getNumberOverlap($start,
-                                                                           $end,
-                                                                           $otherStart,
-                                                                           $otherEnd);
-                            if ($newStart != -1 and $newEnd != -1) {
-                                delete $overlaps{$otherStart};
-                                @{$overlaps{$newStart}} = ($newEnd, $otherCount + 1);  
-                                $removed = 1;
-                                last;
-                            }                                
-                        }
-                        
-                        if ($removed == 0) {
-                            @{$overlaps{$start}} = ($end, 1);    
-                        }
-                    }                    
-                }
+                (my $newStart, my $newEnd) = &getNumberOverlap($start,
+                                                               $end,
+                                                               $otherStart,
+                                                               $otherEnd);
+                if ($newStart != -1 and $newEnd != -1) {
+                    delete $overlaps{$otherStart};
+                    @{$overlaps{$newStart}} = ($newEnd, $otherCount + 1);  
+                    $existingOverlapModified = 1;
+                    last;
+                }                                
             }
+            
+            if (!$existingOverlapModified) {
+                @{$overlaps{$start}} = ($end, 1);    
+            }
+            
+            $currentIndex = $start + length($matches[$j]);
         }
     }
     
     for my $key ( keys %overlaps ) {
-        my $value = $overlaps{$key};
-        print "$key => $value\n";
+        my @value = @{$overlaps{$key}};
+        my $end = $value[0];
+        my $count = $value[1];
+        if ($count > 1) {
+            print "$key => $end, $count\n";
+        }
     }
 }
 
