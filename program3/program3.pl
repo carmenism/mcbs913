@@ -90,25 +90,31 @@ for my $filename (@files) {
             my $start = index($seqs[$i], $match, $currentIndex);
             my $end = $start + length($match);
             
+            (my $letter = $match) =~ s/-//g;
+            
             my $existingOverlapModified = 0;
                         
             for my $otherStart ( keys %overlaps ) {                            
-                (my $otherEnd, my $otherCount) = @{$overlaps{$otherStart}};
+                (my $otherEnd, my $otherCount, my $comment) = @{$overlaps{$otherStart}};
                 
                 (my $newStart, my $newEnd) = &getNumberOverlap($start,
                                                                $end,
                                                                $otherStart,
                                                                $otherEnd);
                 if ($newStart != -1 and $newEnd != -1) {
+                    my $newComment = &buildComment($comment, $letter, $i);;
+                                        
                     delete $overlaps{$otherStart};
-                    @{$overlaps{$newStart}} = ($newEnd, $otherCount + 1);  
+                    @{$overlaps{$newStart}} = ($newEnd, $otherCount + 1, $newComment);  
                     $existingOverlapModified = 1;
                     last;
                 }                                
             }
             
             if (!$existingOverlapModified) {
-                @{$overlaps{$start}} = ($end, 1);    
+                my $comment = &buildComment("...", $letter, $i);
+                
+                @{$overlaps{$start}} = ($end, 1, $comment);    
             }
             
             $currentIndex = $start + length($matches[$j]);
@@ -119,8 +125,9 @@ for my $filename (@files) {
         my @value = @{$overlaps{$key}};
         my $end = $value[0];
         my $count = $value[1];
+        my $comment = $value[2];
         if ($count > 1) {
-            print "$key => $end, $count\n";
+            print "$key => $end, $count, $comment\n";
         }
     }
 }
@@ -129,6 +136,38 @@ for my $filename (@files) {
 close $logFile;
 
 ###############################################################################
+
+sub buildComment() {
+    my $oldComment = $_[0];
+    my $letter = $_[1];
+    my $seqIndex = $_[2];
+    
+    if ($seqIndex == 0) {
+        return $letter . $oldComment;
+    }
+        
+    if ($seqIndex == 3) {
+        return $oldComment . $letter;
+    }
+        
+    my $firstPeriod = index($oldComment, "\.");
+    my $secondPeriod = index($oldComment, "\.", $firstPeriod + 1);
+    
+    my $pre;
+    my $post;
+    
+    if ($seqIndex == 1) {
+        $pre = substr($oldComment, 0, $firstPeriod + 1);
+        $post = substr($oldComment, $firstPeriod + 1);
+    }
+    
+    if ($seqIndex == 2) {
+        $pre = substr($oldComment, 0, $secondPeriod + 1);
+        $post = substr($oldComment, $secondPeriod + 1);
+    }
+    
+    return $pre . $letter . $post;
+}
 
 sub min() {
     my $numA = $_[0];
