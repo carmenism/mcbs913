@@ -109,7 +109,6 @@ for my $filename (@files) {
             my $match = $matches[$j];
             my $matchIndex = $matchIndices[$j];
             #print "$match $matchIndex\n";
-            my $count = 1;
             
             # go through the other collections of matches
             for (my $otherI = $i + 1; $otherI < scalar(@allMatches); $otherI++) {
@@ -129,21 +128,23 @@ for my $filename (@files) {
                     if ($start != -1 and $end != -1) {
                         my $removed = 0;
                         
-                        while ( my ($otherStart, $otherEnd) = each(%overlaps) ) {
+                        while ( my ($otherStart, @other) = each(%overlaps) ) {
+                            my $otherEnd = $other[0];
+                            my $otherCount = $other[1];
                             (my $newStart, my $newEnd) = &getNumberOverlap($start,
                                                                            $end,
                                                                            $otherStart,
                                                                            $otherEnd);
                             if ($newStart != -1 and $newEnd != -1) {
                                 delete $overlaps{$otherStart};
-                                $overlaps{$newStart} = $newEnd;  
+                                @{$overlaps{$newStart}} = ($newEnd, $otherCount + 1);  
                                 $removed = 1;
                                 last;
                             }                                
                         }
                         
                         if ($removed == 0) {
-                            $overlaps{$start} = $end;    
+                            @{$overlaps{$start}} = ($end, 1);    
                         }
                     }                    
                 }
