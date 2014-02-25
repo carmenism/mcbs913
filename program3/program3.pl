@@ -33,7 +33,7 @@ my $logFileName = &getLogFileName($logFileBase, 0);
 open my $logFile, ">", $logFileName or die "Problem opening file $logFileName";
 
 # go through each file in input directory
-my @files = glob "$inputDir/*";
+my @files = glob "$inputDir/*.cut";
 
 my @headers = ();
 my @seqs = ();
@@ -44,7 +44,7 @@ for my $filename (@files) {
     
     print "$filename\n";
     
-    open (IN, $filename) or die "Unable to open: " . $filename;
+    open (IN, $filename) or die "Unable to open: $filename";
     
     # first line better be a sequence header
     my $header = <IN>;
@@ -76,15 +76,152 @@ for my $filename (@files) {
         $header = $inLine;
     }
     
-    # DO WORK HERE
+    my @allMatches = ();
+    my @allMatchIndices = ();
     
-    exit();
+    for (my $i = 0; $i < scalar(@seqs); $i++) {
+        # find the matches in the sequence
+        my @matches = $seqs[$i] =~ m/([OUZ]\-+|\-+[OUZ])/g;
+        my @matchIndices = ();
+        
+        # find the indices of the matches in the sequence
+        my $currentIndex = 0;
+        for (my $j = 0; $j < scalar(@matches); $j++) {
+            my $index = index($seqs[$i], $matches[$j], $currentIndex);
+            print "$matches[$j] $index\n";
+            push (@matchIndices, $index);
+            $currentIndex = $index + length($matches[$j]);
+        }
+        
+        push (@allMatches, @matches);
+        push (@allMatchIndices, @matchIndices);
+    }
+    
+    my %overlaps = ();
+
+    # go through each collection of matches
+    for (my $i = 0; $i < scalar(@allMatches); $i++) {
+        my @matches = $allMatches[$i];
+        my @matchIndices = $allMatchIndices[$i];
+        
+        # go through each match in the collection
+        for (my $j = 0; $j < scalar(@matches); $j++) {
+            my $match = $matches[$j];
+            my $matchIndex = $matchIndices[$j];
+            #print "$match $matchIndex\n";
+            my $count = 1;
+            
+            # go through the other collections of matches
+            for (my $otherI = $i + 1; $otherI < scalar(@allMatches); $otherI++) {
+                my @otherMatches = $allMatches[$otherI];
+                my @otherIndices = $allMatchIndices[$otherI];
+                
+                # go through each match in the other collection
+                for (my $otherJ = 0; $otherJ < scalar(@otherMatches); $otherJ++) {
+                    my $otherMatch = $otherMatches[$otherJ];
+                    my $otherMatchIndex = $otherIndices[$otherJ];
+                    
+                    (my $start, my $end) = &getStringOverlap($match,
+                                                             $matchIndex,
+                                                             $otherMatch,
+                                                             $otherMatchIndex);
+                    
+                    if ($start != -1 and $end != -1) {
+                        my $removed = 0;
+                        
+                        while ( my ($otherStart, $otherEnd) = each(%overlaps) ) {
+                            (my $newStart, my $newEnd) = &getNumberOverlap($start,
+                                                                           $end,
+                                                                           $otherStart,
+                                                                           $otherEnd);
+                            if ($newStart != -1 and $newEnd != -1) {
+                                delete $overlaps{$otherStart};
+                                $overlaps{$newStart} = $newEnd;  
+                                $removed = 1;
+                                last;
+                            }                                
+                        }
+                        
+                        if ($removed == 0) {
+                            $overlaps{$start} = $end;    
+                        }
+                    }                    
+                }
+            }
+        }
+    }
+    
+    for my $key ( keys %overlaps ) {
+        my $value = $overlaps{$key};
+        print "$key => $value\n";
+    }
 }
 
 # close the log file
 close $logFile;
 
 ###############################################################################
+
+sub min() {
+    my $numA = $_[0];
+    my $numB = $_[1];
+    
+    if ($numA < $numB) {
+        return $numA;
+    }
+    
+    return $numB;
+}
+
+sub max() {    
+    my $numA = $_[0];
+    my $numB = $_[1];
+    
+    if ($numA > $numB) {
+        return $numA;
+    }
+    
+    return $numB;
+}
+
+sub getNumberOverlap() {
+    my $startA = $_[0];
+    my $endA = $_[1];
+    
+    my $startB = $_[2];
+    my $endB = $_[3];
+    
+    # A ends before B starts
+    if ($endA < $startB) {
+        return (-1, -1); # no overlap
+    }
+    
+    # B ends before A starts
+    if ($endB < $startA) {
+        return (-1, -1); # no overlap
+    }
+    
+    my $start = &min($startA, $startB);
+    my $end = &max($endA, $endB);
+    
+    return ($start, $end);  
+}
+
+sub getStringOverlap() {
+    my $stringA = $_[0];
+    my $startA = $_[1];
+    
+    my $stringB = $_[2];
+    my $startB = $_[3];
+    
+    my $lengthA = length($stringA);
+    my $lengthB = length($stringB);
+    
+    my $endA = $startA + $lengthA;
+    my $endB = $startB + $lengthB;
+    
+    return &getNumberOverlap($startA, $endA, $startB, $endB); 
+}
 
 sub getOutputDirectory() {
     my $outputDir = "$inputDir-mod";
