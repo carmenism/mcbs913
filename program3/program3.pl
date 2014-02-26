@@ -132,14 +132,14 @@ for my $filename (@files) {
         my $ouzCode = $values[2];
         
         if ($count > 1) {
-            print "$start => $end, $count, $ouzCode\n";
+            #print "$start => $end, $count, $ouzCode\n";
             
             my $revisable = 0;
             
             for my $seq (@seqs) {
-                my $region = substr($seq, $start, $end);
+                my $region = substr($seq, $start, ($end - $start));
                 
-                if ($region =~ /([OUZ]\-+)/) {
+                if ($region =~ m/^[OUZ]\-+$/) {
                     # check post
                     my $post = substr($seq, $end);
                     
@@ -147,7 +147,7 @@ for my $filename (@files) {
                         # consider revising
                         $revisable++;
                     }                    
-                } elsif ($region =~ /(\-+[OUZ])/) {                    
+                } elsif ($region =~ m/^\-+[OUZ]$/) {                    
                     # check pre
                     my $pre = substr($seq, 0, $start);
                     
@@ -170,18 +170,15 @@ for my $filename (@files) {
             
             for (my $i = 0; $i < scalar(@seqs); $i++) {
                 my $seq = $seqs[$i];
-                my $region = substr($seq, $start, $end);
+                my $region = substr($seq, $start, ($end - $start));
                 
-                if ($region =~ /(\-+[OUZ])/) {
+                if ($region =~ m/^\-+[OUZ]$/) {
                     my $pre = substr($seq, 0, $start);
                     
                     if (substr($pre, length($pre) - 1) ne "-") {
                         my $letterIndex = length($region) - 1;
                         my $letter = substr($region, $letterIndex);                        
                         my $newRegion = $letter. substr($region, 0, $letterIndex);
-                        print "region: $region\n";
-                        print "letter: $letter\n";
-                        print "newRegion: $newRegion\n";
                         
                         my $post = substr($seq, $end);
                         $seqs[$i] = $pre . $newRegion . $post;
