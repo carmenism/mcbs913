@@ -24,7 +24,7 @@ my $usageMsg = q(   Usage: program3.pl fastafile
 # check usage and open the input file
 &checkUsage();
 my $inputDir = &getInputDirectory();
-my $outputDir = &getOutputDirectory();
+my $outputDir = &getOutputDirectory($inputDir);
 
 # open the log file
 my $logFileBase = $0;
@@ -95,26 +95,26 @@ for my $filename (@files) {
             my $existingOverlapModified = 0;
                         
             for my $otherStart ( keys %overlaps ) {                            
-                (my $otherEnd, my $otherCount, my $comment) = @{$overlaps{$otherStart}};
+                (my $otherEnd, my $otherCount, my $ouzCode) = @{$overlaps{$otherStart}};
                 
                 (my $newStart, my $newEnd) = &getNumberOverlap($start,
                                                                $end,
                                                                $otherStart,
                                                                $otherEnd);
                 if ($newStart != -1 and $newEnd != -1) {
-                    my $newComment = &buildComment($comment, $letter, $i);;
+                    my $newOuz = &buildOuzCode($ouzCode, $letter, $i);;
                                         
                     delete $overlaps{$otherStart};
-                    @{$overlaps{$newStart}} = ($newEnd, $otherCount + 1, $newComment);  
+                    @{$overlaps{$newStart}} = ($newEnd, $otherCount + 1, $newOuz);  
                     $existingOverlapModified = 1;
                     last;
                 }                                
             }
             
             if (!$existingOverlapModified) {
-                my $comment = &buildComment("...", $letter, $i);
+                my $ouzCode = &buildOuzCode("...", $letter, $i);
                 
-                @{$overlaps{$start}} = ($end, 1, $comment);    
+                @{$overlaps{$start}} = ($end, 1, $ouzCode);    
             }
             
             $currentIndex = $start + length($matches[$j]);
@@ -125,9 +125,9 @@ for my $filename (@files) {
         my @value = @{$overlaps{$key}};
         my $end = $value[0];
         my $count = $value[1];
-        my $comment = $value[2];
+        my $ouzCode = $value[2];
         if ($count > 1) {
-            print "$key => $end, $count, $comment\n";
+            print "$key => $end, $count, $ouzCode\n";
         }
     }
 }
@@ -137,38 +137,67 @@ close $logFile;
 
 ###############################################################################
 
-sub buildComment() {
-    my $oldComment = $_[0];
+sub writeToLog() {
+    my $orthId = $_[0];
+    my $start = $_[1];
+    my $stop = $_[2];
+    my $ouzCode = $_[3];
+    my $revisionFlag = $_[4];
+    my $comment = "";
+    
+    if (@_ == 6) {
+        $comment = $_[5];    
+    }
+    
+    my @list = [$orthId, $start, $stop, $ouzCode, $revisionFlag, $comment];
+    my $line = join(@list, "\t");
+    
+    print $logFile "$line\n";
+}
+
+# Builds a new OUZ string.
+#
+#   oldOuz - the OUZ code to be modified
+#   letter - the letter that is being added to the code
+#   seqIndex - the index of the gene sequence
+#
+sub buildOuzCode() {
+    my $oldOuzCode = $_[0];
     my $letter = $_[1];
     my $seqIndex = $_[2];
     
     if ($seqIndex == 0) {
-        return $letter . $oldComment;
+        return $letter . $oldOuzCode;
     }
         
     if ($seqIndex == 3) {
-        return $oldComment . $letter;
+        return $oldOuzCode . $letter;
     }
         
-    my $firstPeriod = index($oldComment, "\.");
-    my $secondPeriod = index($oldComment, "\.", $firstPeriod + 1);
+    my $firstPeriod = index($oldOuzCode, "\.");
+    my $secondPeriod = index($oldOuzCode, "\.", $firstPeriod + 1);
     
     my $pre;
     my $post;
     
     if ($seqIndex == 1) {
-        $pre = substr($oldComment, 0, $firstPeriod + 1);
-        $post = substr($oldComment, $firstPeriod + 1);
+        $pre = substr($oldOuzCode, 0, $firstPeriod + 1);
+        $post = substr($oldOuzCode, $firstPeriod + 1);
     }
     
     if ($seqIndex == 2) {
-        $pre = substr($oldComment, 0, $secondPeriod + 1);
-        $post = substr($oldComment, $secondPeriod + 1);
+        $pre = substr($oldOuzCode, 0, $secondPeriod + 1);
+        $post = substr($oldOuzCode, $secondPeriod + 1);
     }
     
     return $pre . $letter . $post;
 }
 
+# Returns the minimum of two numbers.
+# 
+#   numA - the first number
+#   numB - the second number
+# 
 sub min() {
     my $numA = $_[0];
     my $numB = $_[1];
@@ -180,6 +209,11 @@ sub min() {
     return $numB;
 }
 
+# Returns the maximum of two numbers.
+# 
+#   numA - the first number
+#   numB - the second number
+# 
 sub max() {    
     my $numA = $_[0];
     my $numB = $_[1];
@@ -191,6 +225,14 @@ sub max() {
     return $numB;
 }
 
+# Find the overlap between two intervals if it exists, otherwise returns
+# (-1, -1).
+#
+#   startA - the start of the first interval
+#   endA - the end of the first interval
+#   startB - the start of the second interval
+#   endB - the end of the second interval
+#
 sub getNumberOverlap() {
     my $startA = $_[0];
     my $endA = $_[1];
@@ -214,24 +256,13 @@ sub getNumberOverlap() {
     return ($start, $end);  
 }
 
-sub getStringOverlap() {
-    my $stringA = $_[0];
-    my $startA = $_[1];
-    
-    my $stringB = $_[2];
-    my $startB = $_[3];
-    
-    my $lengthA = length($stringA);
-    my $lengthB = length($stringB);
-    
-    my $endA = $startA + $lengthA;
-    my $endB = $startB + $lengthB;
-    
-    return &getNumberOverlap($startA, $endA, $startB, $endB); 
-}
-
+# Gets the output directory from the command line argument if it was specified
+# or makes the output directory based on the input directory.  Creates the
+# directory if it does not exist.
+# 
 sub getOutputDirectory() {
-    my $outputDir = "$inputDir-mod";
+    my $inputDirectory = $_[0];
+    my $outputDir = "$inputDirectory-mod";
     
     # check if the output directory parameter exists
     if (@ARGV == 2) {
@@ -245,6 +276,9 @@ sub getOutputDirectory() {
     }
 }
 
+# Gets the input directory from the command line argument and determines
+# whether or not the input directory exists.
+#
 sub getInputDirectory() {
     my $inputDir = $ARGV[ 0 ];
     
@@ -257,6 +291,10 @@ sub getInputDirectory() {
 }
 
 # Recursively constructs the file name.
+#
+#   fileBase - the base of the log file name
+#   fileNumber - the current number to attempt to make a file with
+#
 sub getLogFileName() {
     my $fileBase = $_[0];
     my $fileNumber = $_[1];    
@@ -276,6 +314,7 @@ sub getLogFileName() {
 }
 
 # Checks usage.
+#
 sub checkUsage() {
    if ( @ARGV == 0 || $ARGV[0] eq "-h" ) {
       print STDERR "$usageMsg\n";
