@@ -54,7 +54,7 @@ for my $filename (@files) {
         &checkUsage();
         exit;
     }
-    
+        
     while ($header) {
         my $seq = ""; 
         my $inLine = <IN>;
@@ -105,7 +105,7 @@ for my $filename (@files) {
                     my $newOuz = &buildOuzCode($ouzCode, $letter, $i);;
                                         
                     delete $overlaps{$otherStart};
-                    @{$overlaps{$newStart}} = ($newEnd, $otherCount + 1, $newOuz);  
+                    @{$overlaps{$newStart}} = ($newEnd, $otherCount + 1, $newOuz);
                     $existingOverlapModified = 1;
                     last;
                 }                                
@@ -121,13 +121,16 @@ for my $filename (@files) {
         }
     }
     
-    for my $key ( keys %overlaps ) {
-        my @value = @{$overlaps{$key}};
-        my $end = $value[0];
-        my $count = $value[1];
-        my $ouzCode = $value[2];
+    for my $start ( sort { $a <=> $b} keys %overlaps ) {
+        my @values = @{$overlaps{$start}};
+        my $end = $values[0];
+        my $count = $values[1];
+        my $ouzCode = $values[2];
+        
         if ($count > 1) {
-            print "$key => $end, $count, $ouzCode\n";
+            print "$start => $end, $count, $ouzCode\n";
+            
+            &writeToLog($headers[0], $start, $end, $ouzCode, "", "");
         }
     }
 }
@@ -149,10 +152,9 @@ sub writeToLog() {
         $comment = $_[5];    
     }
     
-    my @list = [$orthId, $start, $stop, $ouzCode, $revisionFlag, $comment];
-    my $line = join(@list, "\t");
-    
-    print $logFile "$line\n";
+    my $line = "$orthId\t$start\t$stop\t$ouzCode\t$revisionFlag\t$comment";
+
+    print{$logFile} "$line\n";
 }
 
 # Builds a new OUZ string.
