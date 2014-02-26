@@ -121,6 +121,10 @@ for my $filename (@files) {
         }
     }
     
+    my $outputFilename = substr($filename, length($inputDir) + 1);
+    open my $outputFile, ">", "$outputDir/$outputFilename"
+    or die "Problem opening file $outputDir/$filename";
+    
     for my $start ( sort { $a <=> $b} keys %overlaps ) {
         my @values = @{$overlaps{$start}};
         my $end = $values[0];
@@ -130,9 +134,72 @@ for my $filename (@files) {
         if ($count > 1) {
             print "$start => $end, $count, $ouzCode\n";
             
-            &writeToLog($headers[0], $start, $end, $ouzCode, "", "");
+            my $revisable = 0;
+            
+            for my $seq (@seqs) {
+                my $region = substr($seq, $start, $end);
+                
+                if ($region =~ /([OUZ]\-+)/) {
+                    # check post
+                    my $post = substr($seq, $end);
+                    
+                    if (substr($post, 0, 1) ne "-") {
+                        # consider revising
+                        $revisable++;
+                    }                    
+                } elsif ($region =~ /(\-+[OUZ])/) {                    
+                    # check pre
+                    my $pre = substr($seq, 0, $start);
+                    
+                    if (substr($pre, length($pre) - 1) ne "-") {
+                        # consider revising
+                        $revisable++;
+                    } 
+                }
+            }
+            
+            my $doRevisions = 0;
+            
+            if ($count == $revisable) {
+                $doRevisions = 1;
+                
+                &writeToLog($headers[0], $start, $end, $ouzCode, "T", "");
+            } else {
+                &writeToLog($headers[0], $start, $end, $ouzCode, "F", "");
+            }
+            
+            for (my $i = 0; $i < scalar(@seqs); $i++) {
+                my $seq = $seqs[$i];
+                my $region = substr($seq, $start, $end);
+                
+                if ($region =~ /(\-+[OUZ])/) {
+                    my $pre = substr($seq, 0, $start);
+                    
+                    if (substr($pre, length($pre) - 1) ne "-") {
+                        my $letterIndex = length($region) - 1;
+                        my $letter = substr($region, $letterIndex);                        
+                        my $newRegion = $letter. substr($region, 0, $letterIndex);
+                        print "region: $region\n";
+                        print "letter: $letter\n";
+                        print "newRegion: $newRegion\n";
+                        
+                        my $post = substr($seq, $end);
+                        $seqs[$i] = $pre . $newRegion . $post;
+                    } 
+                }
+            }
         }
     }
+    
+    for (my $i = 0; $i < scalar(@seqs); $i++) {
+        my $seq = $seqs[$i];
+        my $hdr = $headers[$i];
+        
+        print{$outputFile} "$hdr\n";
+        print{$outputFile} "$seq\n";
+    }
+    
+    close $outputFile;
 }
 
 # close the log file
@@ -263,19 +330,21 @@ sub getNumberOverlap() {
 # directory if it does not exist.
 # 
 sub getOutputDirectory() {
-    my $inputDirectory = $_[0];
-    my $outputDir = "$inputDirectory-mod";
+    my $in = $_[0];
+    my $out = "$in-mod";
     
     # check if the output directory parameter exists
     if (@ARGV == 2) {
-        $outputDir = $ARGV[1];
+        $out = $ARGV[ 1 ];
     }
     
     # make the output directory if it does not exist
-    if (!-d $outputDir) {
-        mkdir($outputDir, 0700)
-        or die "Problem creating output directory $outputDir.";
+    if (!-d $out) {
+        mkdir($out, 0700)
+        or die "Problem creating output directory $out.";
     }
+    
+    return $out;
 }
 
 # Gets the input directory from the command line argument and determines
