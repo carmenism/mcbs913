@@ -4,20 +4,19 @@
 # MCBS 913, Spring 2014
 # Program 3
 #
-# February 24, 2014
+# February 28, 2014
 #
 
 use warnings;
 use strict;
 
-my $usageMsg = q(   Usage: program3.pl fastafile
+my $usageMsg = q(   Usage: program3.pl inputDirectory [outputDirectory]
 
-          Extract each sequence from a fastafile into a single string.
-          Transcribes the DNA to RNA, then translates RNA codons to
-          amino acids.
-
-          Output is the revised header and protein sequences.
-          Output sent to standard output. );
+          Looks at all files in input directory for alignments of introns.
+          If OUZ sequences can be aligned between two or more sequences
+          in a file, then writes a revised file to the outputDirectory.
+          If the output directory was not specified, then writes to
+          [inputDirectory]-mod. );
 
 ###############################################################################
 
@@ -42,7 +41,7 @@ for my $filename (@files) {
     @headers = ();
     @seqs = ();
     
-    print "$filename\n";
+    #print "$filename\n";
     
     open (IN, $filename) or die "Unable to open: $filename";
     
@@ -131,8 +130,8 @@ for my $filename (@files) {
         my $comment = $values[3];
         
         if ($count > 1) {     
-            print "*************************\n";  
-            print "$start => $end, $count, $ouzCode\n";
+            #print "*************************\n";  
+            #print "$start => $end, $count, $ouzCode\n";
             my $alignment = 0; # no alignment
             my $numberRevisionsMade = 0;
             my @starts = ();
@@ -144,7 +143,7 @@ for my $filename (@files) {
                 for (my $i = 0; $i < scalar(@seqs); $i++) {
                     if (&seqMatchedOverlap($i, $ouzCode)) {
                         (my $seqStart, my $seqEnd) = &findGapInSeq($seqs[$i], $start, $end);                        
-                        print "seq $i found at $seqStart => $seqEnd\n";
+                        #print "seq $i found at $seqStart => $seqEnd\n";
                         push(@starts, $seqStart);
                         push(@ends, $seqEnd);
                         push(@seqIndices, $i);
@@ -203,6 +202,8 @@ for my $filename (@files) {
             print{$outputFile} "$seq\n";
         }        
     
+        print "Revised $filename written to $outputDir\n";
+    
         close $outputFile;  
     } else {
         for my $start ( sort { $a <=> $b} keys %overlaps ) {
@@ -212,6 +213,8 @@ for my $filename (@files) {
             my $ouzCode = $values[2];
             &writeToLog($headers[0], $start, $end, $ouzCode, "F", "");
         }
+        
+        print "Did not revise $filename\n";
     }
 }
 
@@ -220,6 +223,11 @@ close $logFile;
 
 ###############################################################################
 
+# Determines whether or not an array of numbers contains all of the same
+# values.
+#
+#   arr - an array of numbers
+#
 sub allItemsInArraySame() {
     my @arr = @_;
     
@@ -232,6 +240,13 @@ sub allItemsInArraySame() {
     return 1; # true
 }
 
+# Revises the sequence's gap according to the alignment type.
+# 
+#   seq - the original sequence
+#   seqStart - the start index for the sequence's gap
+#   seqEnd - the end index for the sequence's gap
+#   alignment - the type of alignment to perform (1 for front, -1 for back)
+#   
 sub reviseSeq() {
     my $seq = $_[0];
     my $seqStart = $_[1];
@@ -263,6 +278,13 @@ sub reviseSeq() {
     return ($newSeq, ($region ne $newRegion));
 }
 
+# Determines whether or not a sequence was found to be part of an overlap
+# region.
+#
+#   seqIndex - the index of the sequence in the file
+#   ouzCode - the OUZ code representing which sequences had an OUZ or the
+#      overlap region
+#
 sub seqMatchedOverlap() {
     my $seqIndex = $_[0];
     my $ouzCode = $_[1];
@@ -272,6 +294,13 @@ sub seqMatchedOverlap() {
     return $codes[$seqIndex] ne "";
 }
 
+# Finds the indices of the gap, if present, which occurs in the overlap
+# region of the specified sequence.
+# 
+#   seq - the original protein sequence
+#   start - the start of the overlap region
+#   end - the end of the overlap region
+# 
 sub findGapInSeq() {
     my $seq = $_[0];
     my $start = $_[1];
@@ -304,6 +333,11 @@ sub findGapInSeq() {
     return ($start + $matchStart, $start + $matchEnd);
 }
 
+# Determines whether or not a single sequence contains more than one gap in
+# the overlap region.
+#
+#   ouzCode - the OUZ code
+# 
 sub containsSingleSeqMoreThanOnce() {
     my $ouzCode = $_[0];
     
@@ -318,6 +352,15 @@ sub containsSingleSeqMoreThanOnce() {
     return 0; # false
 }
 
+# Writes the information about the overlap region to a log.
+#
+#   orthId
+#   start
+#   stop
+#   ouzCode 
+#   revisionFlag
+#   comment
+#
 sub writeToLog() {
     my $orthId = $_[0];
     my $start = $_[1];
