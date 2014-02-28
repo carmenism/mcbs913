@@ -140,8 +140,7 @@ for my $filename (@files) {
             my @seqIndices = ();
             
             if (!&containsSingleSeqMoreThanOnce($ouzCode)) {                
-                print "may not be complex\n";               
-                
+                # may not be complex 
                 for (my $i = 0; $i < scalar(@seqs); $i++) {
                     if (&seqMatchedOverlap($i, $ouzCode)) {
                         (my $seqStart, my $seqEnd) = &findGapInSeq($seqs[$i], $start, $end);                        
@@ -152,27 +151,15 @@ for my $filename (@files) {
                     }
                 }
                 
-                my $sameStarts = 1;
-                my $sameEnds = 1;
-                
-                for (my $i = 1; $i < scalar(@starts); $i++) {
-                    if ($starts[$i] == $starts[$i - 1]) {
-                        $sameStarts++;
-                    }
-                    
-                    if ($ends[$i] == $ends[$i - 1]) {
-                        $sameEnds++;
-                    }
-                }
-                                
-                if ($sameStarts == $count) {
+                if (&allItemsInArraySame(@starts)) {
                     $alignment = 1; # align front
-                } elsif ($sameEnds == $count) {
+                } elsif (&allItemsInArraySame(@ends)) {
                     $alignment = -1; # align back
-                }
+                }                
             }
                         
             if ($alignment == 1 or $alignment == -1) {
+                # do revision
                 for (my $i = 0; $i < scalar(@seqIndices); $i++) {
                     my $originalIndex = $seqIndices[$i];
                     my $seq = $seqs[$originalIndex];
@@ -180,7 +167,7 @@ for my $filename (@files) {
                     my $seqEnd = $ends[$i];
                     
                     (my $newSeq, my $wasRevised) = &reviseSeq($seq, $seqStart, $seqEnd, $alignment);
-                                        
+                        
                     if ($wasRevised) {
                         $numberRevisionsMade++;
                     }                    
@@ -232,6 +219,18 @@ for my $filename (@files) {
 close $logFile;
 
 ###############################################################################
+
+sub allItemsInArraySame() {
+    my @arr = @_;
+    
+    for (my $j = 1; $j < scalar(@arr); $j++) {
+        if ($arr[$j] != $arr[$j - 1]) {
+            return 0; # false
+        }        
+    }
+    
+    return 1; # true
+}
 
 sub reviseSeq() {
     my $seq = $_[0];
