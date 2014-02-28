@@ -120,10 +120,8 @@ for my $filename (@files) {
             $currentIndex = $start + length($matches[$j]);
         }
     }
-    
-    my $outputFilename = substr($filename, length($inputDir) + 1);
-    open my $outputFile, ">", "$outputDir/$outputFilename"
-    or die "Problem opening file $outputDir/$filename";
+        
+    my $revisionsMade = 0;
     
     for my $start ( sort { $a <=> $b} keys %overlaps ) {
         my @values = @{$overlaps{$start}};
@@ -132,42 +130,119 @@ for my $filename (@files) {
         my $ouzCode = $values[2];
         
         if ($count > 1) {     
-                print "*************************\n";  
+            print "*************************\n";  
             print "$start => $end, $count, $ouzCode\n";
+            my $alignment = 0; # no alignment
+            my $numberRevisionsMade = 0;
+            my @starts = ();
+            my @ends = ();
+            my @seqIndices = ();
             
-            my $alignment = &findAlignment($start, $end, @seqs);
-            
-            if ($alignment == -1 or $alignment == 1) {                
-                &writeToLog($headers[0], $start, $end, $ouzCode, "T", "");
-            } else {
-                &writeToLog($headers[0], $start, $end, $ouzCode, "F", "");
+            if (!&containsSingleSeqMoreThanOnce($ouzCode)) {                
+                print "may not be complex\n";               
+                
+                for (my $i = 0; $i < scalar(@seqs); $i++) {
+                    if (&seqMatchedOverlap($i, $ouzCode)) {
+                        (my $seqStart, my $seqEnd) = &findGapInSeq($seqs[$i], $start, $end);                        
+                        print "seq $i found at $seqStart => $seqEnd\n";
+                        push(@starts, $seqStart);
+                        push(@ends, $seqEnd);
+                        push(@seqIndices, $i);
+                    }
+                }
+                
+                my $sameStarts = 1;
+                my $sameEnds = 1;
+                
+                for (my $i = 1; $i < scalar(@starts); $i++) {
+                    if ($starts[$i] == $starts[$i - 1]) {
+                        $sameStarts++;
+                    }
+                    
+                    if ($ends[$i] == $ends[$i - 1]) {
+                        $sameEnds++;
+                    }
+                }
+                                
+                if ($sameStarts == $count) {
+                    $alignment = 1; # align front
+                } elsif ($sameEnds == $count) {
+                    $alignment = -1; # align back
+                }
+            }
+                        
+            if ($alignment == 1 or $alignment == -1) {
+                for (my $i = 0; $i < scalar(@seqIndices); $i++) {
+                    my $originalIndex = $seqIndices[$i];
+                    my $seq = $seqs[$originalIndex];
+                    my $seqStart = $starts[$i];
+                    my $seqEnd = $ends[$i];
+                    
+                    my $pre = substr($seq, 0, $seqStart);
+                    my $post = substr($seq, $seqEnd);
+                    my $region = substr($seq, $seqStart, ($seqEnd - $seqStart));
+                    (my $letter = $region) =~ s/-//g;
+                    my $dashes = "";
+                    
+                    for (my $n = 0; $n < length($region) - 1; $n++) {
+                        $dashes .= "-";
+                    }
+                    
+                    my $newRegion = "";
+                    
+                    if ($alignment == 1) { # align front
+                        $newRegion = $letter . $dashes;
+                    } elsif ($alignment == -1) { # align back
+                        $newRegion = $dashes . $letter;
+                    } else {
+                        $newRegion = $region;
+                    }
+                    
+                    if ($region ne $newRegion) {
+                        $numberRevisionsMade++;
+                    }                    
+                    
+                    $seqs[$originalIndex] = $pre . $newRegion . $post;
+                }                
             }
             
-            for (my $i = 0; $i < scalar(@seqs); $i++) {
-                my $seq = $seqs[$i];
-                
-                if ($alignment == 1) { # move to beginning
-                    $seqs[$i] = &moveLetterToBeginning($seq, $start, $end);
-                    
-                    print "tada $seqs[$i]\n\n";
-                }
-                
-                if ($alignment == -1) { # move to end
-                    $seqs[$i] = &moveLetterToEnd($seq, $start, $end);
-                }
+            if ($numberRevisionsMade > 0) {
+                $revisionsMade = 1;
             }
         }
     }
     
-    for (my $i = 0; $i < scalar(@seqs); $i++) {
-        my $seq = $seqs[$i];
-        my $hdr = $headers[$i];
+    if ($revisionsMade > 0) {
+        for my $start ( sort { $a <=> $b} keys %overlaps ) {
+            my @values = @{$overlaps{$start}};
+            my $end = $values[0];
+            my $count = $values[1];
+            my $ouzCode = $values[2];
+            &writeToLog($headers[0], $start, $end, $ouzCode, "T", "");
+        }
         
-        print{$outputFile} "$hdr\n";
-        print{$outputFile} "$seq\n";
-    }
+        my $outputFilename = substr($filename, length($inputDir) + 1);
+        open my $outputFile, ">", "$outputDir/$outputFilename"
+        or die "Problem opening file $outputDir/$filename";
+        
+        for (my $i = 0; $i < scalar(@seqs); $i++) {
+            my $seq = $seqs[$i];
+            my $hdr = $headers[$i];
+            
+            print{$outputFile} "$hdr\n";
+            print{$outputFile} "$seq\n";
+        }        
     
-    close $outputFile;
+        close $outputFile;  
+    } else {
+        for my $start ( sort { $a <=> $b} keys %overlaps ) {
+            my @values = @{$overlaps{$start}};
+            my $end = $values[0];
+            my $count = $values[1];
+            my $ouzCode = $values[2];
+            &writeToLog($headers[0], $start, $end, $ouzCode, "F", "");
+        }
+    }
 }
 
 # close the log file
@@ -175,95 +250,13 @@ close $logFile;
 
 ###############################################################################
 
-sub moveLetterToEnd() {
-    my $seq = $_[0];
-    my $overlapStart = $_[1];
-    my $overlapEnd = $_[2];
+sub seqMatchedOverlap() {
+    my $seqIndex = $_[0];
+    my $ouzCode = $_[1];
     
-    (my $regStart, my $regEnd) = &findGapInSeq($seq, $overlapStart, $overlapEnd);
-    my $region = substr($seq, $regStart, ($regEnd - $regStart));
+    my @codes = split( "\\.", $ouzCode, -1);
     
-    my $newSeq = $seq;
-    
-    if ($region =~ m/^[OUZ]\-+$/) {
-        my $letter = substr($region, 0, 1);                        
-        my $newRegion = substr($region, 1) . $letter;
-        
-        my $pre = substr($seq, 0, $regStart);
-        my $post = substr($seq, $regEnd);
-        
-        #return $pre . $newRegion . $post;
-        $newSeq = $pre . $newRegion . $post;
-    }
-    
-    return $newSeq;
-}
-
-sub moveLetterToBeginning() {
-    my $seq = $_[0];
-    my $overlapStart = $_[1];
-    my $overlapEnd = $_[2];
-    
-    (my $regStart, my $regEnd) = &findGapInSeq($seq, $overlapStart, $overlapEnd);
-    my $region = substr($seq, $regStart, ($regEnd - $regStart));
-    
-    if ($region =~ m/^\-+[OUZ]$/) {
-        my $letterIndex = length($region) - 1;
-        my $letter = substr($region, $letterIndex);                        
-        my $newRegion = $letter . substr($region, 0, $letterIndex);
-        
-        my $pre = substr($seq, 0, $regStart);
-        my $post = substr($seq, $regEnd);
-        
-        print "old: $region\n";
-        print "new: $newRegion\n";
-        
-        print "$seq\n\n".$pre . $newRegion . $post."\n\n";
-        return $pre . $newRegion . $post;
-    }
-    
-    return $seq;
-}
-
-sub findAlignment() {
-    my $start = $_[0];
-    my $end = $_[1];
-    
-    my @starts = ();
-    my @ends = ();
-    
-    for my $sequence (@seqs) {
-        (my $matchStart, my $matchEnd) = &findGapInSeq($sequence, $start, $end);
-        
-        if ($matchStart != -1 and $matchEnd != -1) {
-            push(@starts, $matchStart);
-            push(@ends, $matchEnd);
-        }
-    }
-    
-    my $numberMatches = scalar(@starts);
-    my $sameStarts = 1;
-    my $sameEnds = 1;
-    
-    for (my $i = 1; $i < $numberMatches; $i++) {
-        if ($starts[$i] == $starts[$i - 1]) {
-            $sameStarts++;
-        }
-        
-        if ($ends[$i] == $ends[$i - 1]) {
-            $sameEnds++;
-        }
-    }
-    
-    if ($sameStarts == $numberMatches) {
-        return 1;
-    }
-    
-    if ($sameEnds == $numberMatches) {
-        return -1;
-    }
-    
-    return 0;
+    return $codes[$seqIndex] ne "";
 }
 
 sub findGapInSeq() {
@@ -271,8 +264,8 @@ sub findGapInSeq() {
     my $start = $_[1];
     my $end = $_[2];
     
-    my $region = substr($seq, $start, ($end - $start));    
-    my @matches = $seq =~ m/([OUZ]\-+|\-+[OUZ])/g;
+    my $region = substr($seq, $start, ($end - $start));
+    my @matches = split(/[^OUZ\-]/, $region);
     my $numberMatches = scalar(@matches);
     
     if ($numberMatches == 0) {
@@ -281,8 +274,8 @@ sub findGapInSeq() {
     
     my $match = $matches[0];
     
-    for (my $i = 1; $i < scalar(@matches); $i++) {
-        if (length($matches[$i]) == length($match)) {
+    for (my $i = 1; $i < $numberMatches; $i++) {
+        if (length($matches[$i]) > length($match)) {
             $match = $matches[$i];
         }        
     }
@@ -292,23 +285,13 @@ sub findGapInSeq() {
     if ($matchStart == -1) {
         return (-1, -1)
     }
-    
-    
+        
     my $matchEnd = $matchStart + length($match);
-    
-    #print "$region,  $matchStart, $matchEnd\n";
-    
+        
     return ($start + $matchStart, $start + $matchEnd);
 }
 
-sub getMatches() {
-    my $seq = $_[0];
-    my @matches = $seq =~ m/([OUZ]\-+|\-+[OUZ])/g;
-    
-    return @matches;
-}
-
-sub isContainsSingleSeqMoreThanOnce() {
+sub containsSingleSeqMoreThanOnce() {
     my $ouzCode = $_[0];
     
     my @codes = split( "\\.", $ouzCode);
