@@ -105,7 +105,7 @@ for my $filename (@files) {
                     my $newOuz = &buildOuzCode($ouzCode, $letter, $i);;
                                         
                     delete $overlaps{$otherStart};
-                    @{$overlaps{$newStart}} = ($newEnd, $otherCount + 1, $newOuz);
+                    @{$overlaps{$newStart}} = ($newEnd, $otherCount + 1, $newOuz, "");
                     $existingOverlapModified = 1;
                     last;
                 }                                
@@ -114,7 +114,7 @@ for my $filename (@files) {
             if (!$existingOverlapModified) {
                 my $ouzCode = &buildOuzCode("...", $letter, $i);
                 
-                @{$overlaps{$start}} = ($end, 1, $ouzCode);    
+                @{$overlaps{$start}} = ($end, 1, $ouzCode, "");    
             }
             
             $currentIndex = $start + length($matches[$j]);
@@ -128,6 +128,7 @@ for my $filename (@files) {
         my $end = $values[0];
         my $count = $values[1];
         my $ouzCode = $values[2];
+        my $comment = $values[3];
         
         if ($count > 1) {     
             print "*************************\n";  
@@ -178,31 +179,13 @@ for my $filename (@files) {
                     my $seqStart = $starts[$i];
                     my $seqEnd = $ends[$i];
                     
-                    my $pre = substr($seq, 0, $seqStart);
-                    my $post = substr($seq, $seqEnd);
-                    my $region = substr($seq, $seqStart, ($seqEnd - $seqStart));
-                    (my $letter = $region) =~ s/-//g;
-                    my $dashes = "";
-                    
-                    for (my $n = 0; $n < length($region) - 1; $n++) {
-                        $dashes .= "-";
-                    }
-                    
-                    my $newRegion = "";
-                    
-                    if ($alignment == 1) { # align front
-                        $newRegion = $letter . $dashes;
-                    } elsif ($alignment == -1) { # align back
-                        $newRegion = $dashes . $letter;
-                    } else {
-                        $newRegion = $region;
-                    }
-                    
-                    if ($region ne $newRegion) {
+                    (my $newSeq, my $wasRevised) = &reviseSeq($seq, $seqStart, $seqEnd, $alignment);
+                                        
+                    if ($wasRevised) {
                         $numberRevisionsMade++;
                     }                    
                     
-                    $seqs[$originalIndex] = $pre . $newRegion . $post;
+                    $seqs[$originalIndex] = $newSeq;
                 }                
             }
             
@@ -249,6 +232,37 @@ for my $filename (@files) {
 close $logFile;
 
 ###############################################################################
+
+sub reviseSeq() {
+    my $seq = $_[0];
+    my $seqStart = $_[1];
+    my $seqEnd = $_[2];
+    my $alignment = $_[3];
+    
+    my $pre = substr($seq, 0, $seqStart);
+    my $post = substr($seq, $seqEnd);
+    my $region = substr($seq, $seqStart, ($seqEnd - $seqStart));
+    (my $letter = $region) =~ s/-//g;
+    my $dashes = "";
+    
+    for (my $n = 0; $n < length($region) - 1; $n++) {
+        $dashes .= "-";
+    }
+    
+    my $newRegion = "";
+    
+    if ($alignment == 1) { # align front
+        $newRegion = $letter . $dashes;
+    } elsif ($alignment == -1) { # align back
+        $newRegion = $dashes . $letter;
+    } else {
+        $newRegion = $region;
+    }
+    
+    my $newSeq = $pre . $newRegion . $post;
+    
+    return ($newSeq, ($region ne $newRegion));
+}
 
 sub seqMatchedOverlap() {
     my $seqIndex = $_[0];
